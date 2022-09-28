@@ -2,7 +2,6 @@ title = "Model Hyperparameters"
 
 # More parameters to be added later
 [dataset]
-batch_size = 64
 seed = 42
 image_width = 256
 image_height = 256
@@ -12,5 +11,6 @@ test_split = 0.5
 # More parameters to be added later
 [model]
 seed = 42
+batch_size = 20
 learning_rate = 0.01
 num_epochs = 20

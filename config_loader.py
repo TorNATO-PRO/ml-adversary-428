@@ -18,7 +18,6 @@ class DatasetConfig:
     Be sure to add attributes to this class as you add attributes
     to model.toml.
     """
-    batch_size: int
     image_width: int
     image_height: int
     seed: int
@@ -38,6 +37,7 @@ class ModelConfig:
     Be sure to add attributes to this class as you add attributes
     to model.toml.
     """
+    batch_size: int
     seed: int
     learning_rate: float
     num_epochs: int

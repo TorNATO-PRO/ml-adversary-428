@@ -62,43 +62,55 @@ class Model:
         :param model_path: The absolute path to a saved model.
         """
         self.config = config
-        self.model = None
-        if model_path is not None:
-            self.model = self._load_model(model_path)
-
-        if self.model is None:
-            self.model = tf.keras.Sequential([
+        self.model = tf.keras.Sequential([
                 tf.keras.layers.Input(
                     (self.config.dataset_config.image_width, self.config.dataset_config.image_height, 3)),
-                ConvolutionalBlock(16, 3, 2, tf.keras.activations.relu),
-                ConvolutionalBlock(16, 3, 2, tf.keras.activations.relu),
                 ConvolutionalBlock(32, 3, 2, tf.keras.activations.relu),
                 ConvolutionalBlock(32, 3, 2, tf.keras.activations.relu),
+                ConvolutionalBlock(64, 3, 2, tf.keras.activations.relu),
+                ConvolutionalBlock(64, 3, 2, tf.keras.activations.relu),
                 tf.keras.layers.GlobalAveragePooling2D(),
-                tf.keras.layers.Dense(units=1024, activation="relu"),
+                tf.keras.layers.Dense(units=1024, activation=tf.keras.activations.relu),
                 tf.keras.layers.Dropout(0.3),
-                tf.keras.layers.Dense(units=1, activation="sigmoid")]
+                tf.keras.layers.Dense(units=1, activation=tf.keras.activations.sigmoid)]
             )
         self.model.compile(
             loss="binary_crossentropy",
             optimizer=tf.keras.optimizers.Adam(learning_rate=config.model_config.learning_rate),
-            metrics=["accuracy"]
+            metrics=["accuracy"],
         )
 
-    def fit_model(self, training_data: tf.data.Dataset, validation_data: tf.data.Dataset) -> None:
+        if model_path:
+            self._load_model(model_path)
+
+    def fit_model(self, training_data: tf.data.Dataset, validation_data: tf.data.Dataset, save_directory: Optional[os.PathLike] = None) -> tf.keras.callbacks.History:
         """
         Fits the model on training data. We are using an early stopping callback
         to stop training if necessary.
 
         :param training_data: The training data that is being used.
         :param validation_data: The validation data that is being used.
+        :param save_directory: The directory to save the model at.
         """
-        self.model.fit(
+        checkpoint = None
+        if save_directory is not None:
+            checkpoint = tf.keras.callbacks.ModelCheckpoint(
+                save_directory, save_best_only=True
+            )
+
+        callbacks = [tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5)]
+        if checkpoint is not None:
+            callbacks += [checkpoint]
+
+        history = self.model.fit(
             training_data,
             validation_data=validation_data,
             epochs=self.config.model_config.num_epochs,
-            callbacks=[tf.keras.callbacks.EarlyStopping(monitor="val_acc", patience=10)]
+            callbacks=callbacks,
+            batch_size=self.config.model_config.batch_size,
+            validation_batch_size=self.config.model_config.batch_size
         )
+        return history
 
     def make_predictions(self, data) -> None:
         """
@@ -108,23 +120,13 @@ class Model:
         """
         return self.model.predict(data)
 
-    def save_model(self, path: os.PathLike) -> None:
-        """
-        Save the model at the specified path.
-
-        :param path: The path to save the model at.
-        """
-        self.model.save(path)
-
-    @staticmethod
-    def _load_model(path: os.PathLike) -> Optional[tf.keras.Model]:
+    def _load_model(self, path: os.PathLike) -> None:
         """
         Loads a model from an absolute path.
 
         :param path: The path to load the model from.
-        :return: The model.
         """
         if not os.path.exists(path):
-            return None
+            return
 
-        return tf.keras.models.load_model(path)
+        self.model.load_weights(path)

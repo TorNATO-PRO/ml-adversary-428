@@ -10,7 +10,7 @@ from typing import Optional
 import tensorflow as tf
 from dataclasses import dataclass
 
-from config_loader import DatasetConfig
+from config_loader import Config
 
 
 @dataclass
@@ -21,7 +21,6 @@ class ModelData:
     """
     train: tf.data.Dataset
     validation: tf.data.Dataset
-    testing: tf.data.Dataset
 
 
 class DataLoader:
@@ -30,7 +29,7 @@ class DataLoader:
     that is stored on the disk into RAM.
     """
 
-    def __init__(self, config: DatasetConfig, directory: os.PathLike = "data/PetImages/") -> None:
+    def __init__(self, config: Config, directory: os.PathLike = "data/PetImages/") -> None:
         """
         Initializes a new instance of the DataLoader class.
 
@@ -68,11 +67,11 @@ class DataLoader:
             label_mode='binary',
             class_names=None,
             color_mode="rgb",
-            batch_size=self.config.batch_size,
-            image_size=(self.config.image_width, self.config.image_height),
+            batch_size=self.config.model_config.batch_size,
+            image_size=(self.config.dataset_config.image_width, self.config.dataset_config.image_height),
             shuffle=True,
-            seed=self.config.seed,
-            validation_split=self.config.validation_split,
+            seed=self.config.dataset_config.seed,
+            validation_split=self.config.dataset_config.validation_split,
             subset="training",
             interpolation="bilinear")
 
@@ -82,28 +81,22 @@ class DataLoader:
             label_mode='binary',
             class_names=None,
             color_mode="rgb",
-            batch_size=self.config.batch_size,
-            image_size=(self.config.image_width, self.config.image_height),
+            batch_size=self.config.model_config.batch_size,
+            image_size=(self.config.dataset_config.image_width, self.config.dataset_config.image_height),
             shuffle=True,
-            seed=self.config.seed,
-            validation_split=self.config.validation_split,
+            seed=self.config.dataset_config.seed,
+            validation_split=self.config.dataset_config.validation_split,
             subset="validation",
             interpolation="bilinear")
-
-        # create test and validation sets since tensorflow doesn't allow this by default
-        testing_size = int(self.config.test_split * len(validation_image_dataset))
-        testing_image_dataset = validation_image_dataset.take(testing_size)
-        validation_image_dataset = validation_image_dataset.skip(testing_size)
 
         # perform transformation on training data
         if transformation is not None:
             training_image_dataset.map(lambda x, y: (transformation(x), y))
 
         # prefetch some images
-        training_image_dataset = training_image_dataset.prefetch(self.config.batch_size)
-        validation_image_dataset = validation_image_dataset.prefetch(self.config.batch_size)
-        testing_image_dataset = testing_image_dataset.prefetch(self.config.batch_size)
-        return ModelData(training_image_dataset, validation_image_dataset, testing_image_dataset)
+        training_image_dataset = training_image_dataset.prefetch(self.config.model_config.batch_size)
+        validation_image_dataset = validation_image_dataset.prefetch(self.config.model_config.batch_size)
+        return ModelData(training_image_dataset, validation_image_dataset)
 
 
 def image_is_corrupt(image_path: os.PathLike):
@@ -116,7 +109,7 @@ def image_is_corrupt(image_path: os.PathLike):
     try:
         img_bytes = tf.io.read_file(image_path)
         tf.io.decode_image(img_bytes)
-    except tf.errors.InvalidArgumentError as e:
+    except tf.errors.InvalidArgumentError:
         return True
 
     return False

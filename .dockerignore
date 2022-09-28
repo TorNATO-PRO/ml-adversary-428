@@ -1,0 +1,7 @@
+# Things for docker to ignore
+Dockerfile
+data/
+saved_models/
+venv/
+__pycache__/
+.idea/
